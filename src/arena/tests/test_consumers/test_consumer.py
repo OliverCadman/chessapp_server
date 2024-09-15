@@ -20,7 +20,7 @@ class ArenaConsumerTests(TestCase):
         connected, _ = await self.communicator.connect()
         self.assertTrue(connected)
 
-        self.communicator.disconnect()
+        await self.communicator.disconnect()
 
     async def testSendAndReceiveJSON(self):
         """
@@ -41,7 +41,7 @@ class ArenaConsumerTests(TestCase):
         decoded_test_payload = json.loads(test_payload)
 
         self.assertEqual(json_response, decoded_test_payload)
-        self.communicator.disconnect()
+        await self.communicator.disconnect()
 
     async def testJoinRedisChannel(self):
         self.communicator = WebsocketCommunicator(router, "ws/arena/test")

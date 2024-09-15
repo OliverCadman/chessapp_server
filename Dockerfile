@@ -14,7 +14,7 @@ WORKDIR /src
 RUN python -m venv /venv && \
     /venv/bin/pip install --upgrade pip && \
     apk add --update --no-cache --virtual libpq5 && \
-    apk add --update --no-cache bind-tools && \
+    apk add --update --no-cache bind-tools postgresql-client && \
     /venv/bin/pip install -r /tmp/requirements.txt && \
     rm -rf /tmp && \
     adduser \

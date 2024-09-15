@@ -14,9 +14,8 @@ class ArenaConsumer(JsonWebsocketConsumer):
         async_to_sync(self.channel_layer.group_add)(
             self.room_group_name, self.channel_name
         )
-
-        print(self.channel_name)
         self.accept()
+
 
     def disconnect(self, code):
         pass
