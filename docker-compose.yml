@@ -18,6 +18,7 @@ services:
       - DB_HOST=${DB_HOST}
       - DB_PASS=${DB_PASS}
       - DB_NAME=${DB_NAME}
+      - ROOM_SIZE_THRESHOLD=${ROOM_SIZE_THRESHOLD}
     depends_on: 
       - db
     

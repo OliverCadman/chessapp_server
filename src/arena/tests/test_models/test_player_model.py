@@ -1,9 +1,9 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 
 from arena.models import Player, Room
-from datetime import timezone as tz
+from arena.tests.utils.test_helpers import create_test_datetime
+
 
 class PlayerModelTests(TestCase):
 
@@ -30,7 +30,7 @@ class PlayerModelTests(TestCase):
             channel_name=channel_name
         )
 
-        last_seen = timezone.datetime(2024, 9, 15, tzinfo=tz.utc)
+        last_seen = create_test_datetime()
         Player.objects.get_or_create(
             auth_user=auth_user,
             room=room,
@@ -47,3 +47,36 @@ class PlayerModelTests(TestCase):
         self.assertEqual(player_user_prop, auth_user)
         self.assertEqual(player_room_prop, room)
         self.assertEqual(player_lastseen_prop, last_seen)
+
+    def test_create_player_unauthenticated_user(self):
+        """
+        Test creating a player with unauthenticated user successful.
+        """
+
+        last_seen = create_test_datetime()
+
+        channel_name="test_channel"
+        room, _ = Room.objects.get_or_create(
+            channel_name=channel_name
+        )
+
+        last_seen = create_test_datetime()
+
+        Player.objects.create(
+            auth_user=None,
+            channel_name=channel_name,
+            room=room,
+            last_seen=last_seen
+        )
+
+        players = Player.objects.all()
+        self.assertEqual(len(players), 1)
+
+        player_user_prop = players[0].auth_user
+        player_room_prop = players[0].room
+        player_lastseen_prop = players[0].last_seen
+
+        self.assertEqual(player_user_prop, None)
+        self.assertEqual(player_room_prop, room)
+        self.assertEqual(player_lastseen_prop, last_seen)
+
