@@ -127,10 +127,8 @@ class RoomModelIntegrationTests(TestCase):
 
         rooms = Room.objects.all()
         players = Player.objects.all()
-        print(f"Players: {players[0].auth_user}")
 
         users = get_user_model().objects.all()
-        print(users[0].player_set.all()[0].room)
 
         self.assertEqual(len(rooms), 1)
         self.assertEqual(len(players), 1)

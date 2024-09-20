@@ -4,4 +4,4 @@ channels>=4.1.0,<4.2
 channels-redis>=4.2.0,<4.3
 daphne>=4.1.2,<4.2
 drf-spectacular>=0.9.2,<0.10
-djangorestframework-jwt>=1.11.0,<1.12
+djangorestframework-simplejwt>=5.3.1,<5.4

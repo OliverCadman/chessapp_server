@@ -11,12 +11,9 @@ class ArenaConsumer(WebsocketConsumer):
      
         self.room_id = self.scope["url_route"]["kwargs"]["room_id"]
         self.room_group_name = f"chess_{self.room_id}"
-
-        print("SCOPE:" , self.scope)
         
         try:
             self.user = self.scope["user"]
-            print("USER!", self.user)
         except KeyError:
             self.user = AnonymousUser()
 

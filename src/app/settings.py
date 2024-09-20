@@ -36,9 +36,8 @@ AUTH_USER_MODEL = "core.User"
 INSTALLED_APPS = [
     'daphne',
     'channels',
-      # custom apps
-    'core',
-    'arena',
+    'drf_spectacular',
+    'rest_framework_simplejwt',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -46,6 +45,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+   # custom apps
+    'core',
+    'arena',
 ]
 
 MIDDLEWARE = [
@@ -65,6 +67,13 @@ CHANNEL_LAYERS = {
             "hosts": [("redis", "6379")]
         }
     }
+}
+
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_AUTHENTICAITON_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication"        
+    )
 }
 
 ROOT_URLCONF = 'app.urls'
