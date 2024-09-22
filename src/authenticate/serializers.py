@@ -30,17 +30,19 @@ class AuthUserSerializer(serializers.ModelSerializer):
         Check if both passwords match.
         """
 
+        errors = {}
+
         regex = r"^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$"
         if not re.match(regex, data["password1"]) or not re.match(regex, data["password2"]):
-            raise serializers.ValidationError(
-                "Passwords must contain at least 8 characters, one uppercase letter, "
-                "one number and one special character."
-            )
-        
+            errors["weak_password"] = (
+                "Passwords must contain at least 8 characters, " 
+                "one uppercase letter, one number and one special character.")
+
         if data["password1"] != data["password2"]:
-            raise serializers.ValidationError(
-                "Passwords must match."
-            )
+            errors["password_mismatch"] = "Passwords must match."
+        
+        if errors:
+            raise serializers.ValidationError(errors)
         
         return data
 

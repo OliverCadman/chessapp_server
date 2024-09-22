@@ -17,12 +17,10 @@ from channels.security.websocket import AllowedHostsOriginValidator
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'app.settings')
 
-chess_application = get_asgi_application()
-
 from arena.routing import websocket_urlpatterns
 
 application = ProtocolTypeRouter({
-    "http": chess_application,
+    "http": get_asgi_application(),
     "websocket": AllowedHostsOriginValidator(
         AuthMiddlewareStack(URLRouter(websocket_urlpatterns))
     )

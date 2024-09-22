@@ -1,71 +1,102 @@
+import pytest
+
 from channels.testing import WebsocketCommunicator
+from channels.layers import get_channel_layer
+from app.asgi import application
 
-from channels.routing import URLRouter
-from arena.routing import websocket_urlpatterns
-from django.test import TestCase, Client
-from arena.consumers import ArenaConsumer
-from arena.tests.utils.test_helpers import create_test_user
-from asgiref.sync import sync_to_async
+TEST_CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
 
-import json
-
-
-
-router = URLRouter(websocket_urlpatterns)
-
-
-class ArenaConsumerUnitTests(TestCase):
-
-    async def testConnection(self):
-        """
-        Test successful Webhook connection
-        """
-        self.communicator = WebsocketCommunicator(router, "ws/arena/test")
-        connected, _ = await self.communicator.connect()
-        self.assertTrue(connected)
-
-        await self.communicator.disconnect()
-
-    async def testSendAndReceiveJSON(self):
-        """
-        Test JSON is sent and emitted from webhook
-        """
-
-        self.communicator = WebsocketCommunicator(router, "ws/arena/test")
-        await self.communicator.connect()
-
-        test_payload = json.dumps({
-            "message": "testing"
-        })
-
-        await self.communicator.send_json_to(data=test_payload)
-        response = await self.communicator.receive_from()
-        json_response = json.loads(response)
-
-        decoded_test_payload = json.loads(test_payload)
-
-        self.assertEqual(json_response, decoded_test_payload)
-        await self.communicator.disconnect()
-
-    async def testJoinRedisChannel(self):
-        self.communicator = WebsocketCommunicator(router, "ws/arena/test")
-        await self.communicator.connect()
-
-
-class ArenaConsumerIntegrationTests(TestCase):
+@pytest.fixture
+def origin_headers():
     """
-    1. Test Room object created with Authenticated Player on connection.
+    Required to be passed as constructor arg to WebsocketCommunicator,
+    since the WS app is wrapped by AllowedHostsOriginValidator.
     """
+    return (b"origin", b"ws://127.0.0.1:8000")
 
-    async def test_room_object_created_with_auth_user_on_connect(self):
+@pytest.mark.asyncio
+class TestWebsocket:
+    async def test_connection_to_socket(self, settings, origin_headers):
+        """
+        Simply test if a connection to the ws path can be established.
+        """
 
-        auth_user = await sync_to_async(create_test_user)()
+        settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
 
-        client = Client()
-        await sync_to_async(client.force_login)(auth_user)
-        self.assertTrue(auth_user.is_authenticated)
-        
+        communicator = WebsocketCommunicator(
+            application=application, 
+            path="ws/arena/test",
+            headers=[
+                origin_headers
+            ]
+        )
+        connected, _ = await communicator.connect()
+        assert connected is True
+        await communicator.disconnect()
 
-        self.communicator = WebsocketCommunicator(router, "ws/arena/test")
-        await self.communicator.connect()
-        await self.communicator.disconnect()
+    async def test_send_and_receive_messages(self, settings, origin_headers):
+        """
+        Test if a message can be sent to and received from websocket path.
+        """
+
+        settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
+
+        communicator = WebsocketCommunicator(
+            application=application,
+            path="ws/arena/test",
+            headers=[
+                origin_headers
+            ]
+        )
+
+        connected, _ = await communicator.connect()
+        assert connected is True
+
+        payload = {
+            "type": "echo.message",
+            "data": "test message"
+        }
+
+        await communicator.send_json_to(payload)
+        res = await communicator.receive_json_from()
+        assert res == payload
+
+        await communicator.disconnect()
+
+    async def test_send_receive_messages_to_group(self, settings, origin_headers):
+        """
+        Test if a message can be broadcast to, and received from a channels group.
+        """
+
+        settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
+
+        communicator = WebsocketCommunicator(
+            application=application,
+            path="ws/arena/test",
+            headers=[
+                origin_headers
+            ]
+        )
+
+        connected, _ = await communicator.connect()
+        assert connected is True
+
+        payload = {
+            "type": "echo.message",
+            "data": "test message"
+        }
+
+        channel_layer = get_channel_layer()
+
+        # Prefix 'chess_' is prepended to 'test', which is passed as query param.
+        room_group_name = "chess_test"
+        await channel_layer.group_send(room_group_name, message=payload)
+
+        res = await communicator.receive_json_from()
+        assert res == payload
+
+        await communicator.disconnect()

@@ -30,7 +30,6 @@ ALLOWED_HOSTS = []
 
 AUTH_USER_MODEL = "core.User"
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -60,6 +59,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -74,6 +74,10 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICAITON_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication"        
     )
+}
+
+SPECTACULAR_SETTINGS = {
+    "COMPONENT_SPLIT_REQUEST": True
 }
 
 ROOT_URLCONF = 'app.urls'
