@@ -53,7 +53,7 @@ class Room(models.Model):
         If room already contains two players, raise exception to be caught by function caller.
         """
 
-        if self.is_full:
+        if self._is_full:
             raise RoomFullException(
                 f"Room \"{self.channel_name}\" cannot accept more than two players."
             )
@@ -68,7 +68,7 @@ class Room(models.Model):
         return player
     
     @property
-    def is_full(self):
+    def _is_full(self):
         """
         Return true if two or more Player instances have this same Room instance
         assigned to them.
