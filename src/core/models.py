@@ -37,6 +37,9 @@ class UserManager(BaseUserManager):
 # Create your models here.
 class User(AbstractBaseUser, PermissionsMixin):
 
+    class Meta:
+        db_table = "auth_user"
+
     email = models.EmailField(max_length=244, unique=True, null=False)
     name = models.CharField(max_length=255)
     is_superuser = models.BooleanField(default=False)

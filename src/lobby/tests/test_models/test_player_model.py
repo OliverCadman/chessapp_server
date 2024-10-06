@@ -1,8 +1,8 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
-from arena.models import Player, Room
-from arena.tests.utils.test_helpers import create_test_datetime
+from lobby.models import Player, Room
+from lobby.tests.utils.test_helpers import create_test_datetime
 
 
 class PlayerModelTests(TestCase):
@@ -11,8 +11,8 @@ class PlayerModelTests(TestCase):
     """
     - Creation of Player Model with Authenticated User
     - Creation of Player Model with AnonymousUser
-    - Deletion of Player Model
-    - Update 'last seen' status of Player
+    - TODO: Deletion of Player Model
+    - TODO: Update 'last seen' status of Player
     """
 
     def test_create_player(self):
@@ -25,9 +25,9 @@ class PlayerModelTests(TestCase):
             password="testpass123!"
         )
 
-        channel_name = "test_channel"
+        room_name = "test_room"
         room, _ = Room.objects.get_or_create(
-            channel_name=channel_name
+            room_name=room_name
         )
 
         last_seen = create_test_datetime()
@@ -55,16 +55,16 @@ class PlayerModelTests(TestCase):
 
         last_seen = create_test_datetime()
 
-        channel_name="test_channel"
+        room_name="test_room"
         room, _ = Room.objects.get_or_create(
-            channel_name=channel_name
+            room_name=room_name
         )
 
         last_seen = create_test_datetime()
 
         Player.objects.create(
             auth_user=None,
-            channel_name=channel_name,
+            room_name=room_name,
             room=room,
             last_seen=last_seen
         )

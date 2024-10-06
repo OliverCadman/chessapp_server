@@ -4,6 +4,7 @@ LABEL maintainer = "o.cadman@live.co.uk"
 
 ENV PYTHONUNBUFFERED 1
 
+COPY ./scripts /scripts
 COPY /src /src
 COPY ./requirements.txt /tmp/requirements.txt
 
@@ -20,7 +21,8 @@ RUN python -m venv /venv && \
     rm -rf /tmp && \
     adduser \
     --disabled-password \
-    djangouser
+    djangouser && \
+    chmod -R +x /scripts
 
 
 ENV PATH="/venv/bin:$PATH"

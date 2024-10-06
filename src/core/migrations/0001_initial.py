@@ -27,6 +27,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'abstract': False,
+                'db_table': 'core_auth_user'
             },
         ),
     ]

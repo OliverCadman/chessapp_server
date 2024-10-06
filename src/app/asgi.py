@@ -13,12 +13,12 @@ from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.security.websocket import AllowedHostsOriginValidator
 
-from arena.middleware import TokenMiddlewareStack
+from lobby.middleware import TokenMiddlewareStack
 
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'app.settings')
 
-from arena.routing import websocket_urlpatterns
+from lobby.routing import websocket_urlpatterns
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),

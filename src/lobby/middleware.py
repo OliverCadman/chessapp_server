@@ -28,7 +28,6 @@ def get_user(scope):
         access_token = AccessToken(token[0])
         user = get_user_model().objects.get(id=access_token["user_id"])
     except ObjectDoesNotExist:
-        print("OBJECT DOES NOT EXIST")
         return AnonymousUser
     
     if not user.is_active:
