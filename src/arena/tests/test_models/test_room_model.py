@@ -1,8 +1,8 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
-from lobby.models import Room, Player
-from lobby.tests.utils.test_helpers import create_test_datetime, create_test_user
-from lobby.exceptions import RoomFullException
+from arena.models import Room, Player
+from arena.tests.utils.test_helpers import create_test_datetime, create_test_user
+from arena.exceptions import RoomFullException
 
 from unittest.mock import patch
 
@@ -230,7 +230,7 @@ class RoomModelIntegrationTests(TestCase):
     are added to that room as a player.
     """
 
-    @patch("lobby.models.timezone.now")
+    @patch("arena.models.timezone.now")
     def test_add_room_with_auth_user(self, patched_time):
 
         patched_time.return_value = create_test_datetime()

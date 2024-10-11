@@ -1,8 +1,8 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
-from lobby.models import Player, Room
-from lobby.tests.utils.test_helpers import create_test_datetime
+from arena.models import Player, Room
+from arena.tests.utils.test_helpers import create_test_datetime
 
 
 class PlayerModelTests(TestCase):

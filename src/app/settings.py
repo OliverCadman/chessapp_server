@@ -48,7 +48,8 @@ INSTALLED_APPS = [
 
    # custom apps
     'core',
-    'lobby'
+    'lobby',
+    'arena'
 ]
 
 MIDDLEWARE = [

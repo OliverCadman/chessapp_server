@@ -18,7 +18,7 @@ from lobby.middleware import TokenMiddlewareStack
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'app.settings')
 
-from lobby.routing import websocket_urlpatterns
+from arena.routing import websocket_urlpatterns
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
