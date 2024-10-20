@@ -4,37 +4,20 @@ from channels.testing import WebsocketCommunicator
 from channels.layers import get_channel_layer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
-from rest_framework_simplejwt.tokens import AccessToken
 
 from app.asgi import application
 
-from arena.models import Room, Player
+from core.models import Room, Player
+from common.tests.utils import acreate_user_with_token
+from common.tests.constants import TEST_CHANNEL_LAYERS
 
-
-TEST_CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
-    }
-}
-
-@database_sync_to_async
-def create_user_with_token(email="test@example.com", password="Testpass123!"):
-    user = get_user_model().objects.create_user(
-        email=email, password=password
-    )
-
-    access = AccessToken.for_user(user)
-    return user, access
-
-
-@pytest.fixture
+@pytest.fixture(scope="session")
 def origin_headers():
     """
     Required to be passed as constructor arg to WebsocketCommunicator,
     since the WS app is wrapped by AllowedHostsOriginValidator.
     """
     return (b"origin", b"ws://127.0.0.1:8000")
-
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
@@ -46,7 +29,7 @@ class TestArenaWebsocket:
 
         settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
 
-        _, token = await create_user_with_token()
+        _, token = await acreate_user_with_token()
 
         communicator = WebsocketCommunicator(
             application=application, 
@@ -66,7 +49,7 @@ class TestArenaWebsocket:
 
         settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
 
-        _, token = await create_user_with_token()
+        _, token = await acreate_user_with_token()
 
         communicator = WebsocketCommunicator(
             application=application, 
@@ -97,7 +80,7 @@ class TestArenaWebsocket:
 
         settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
 
-        _, token = await create_user_with_token()
+        _, token = await acreate_user_with_token()
 
         communicator = WebsocketCommunicator(
             application=application, 
@@ -164,7 +147,7 @@ class TestArenaWebsocket:
             ):
         settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
 
-        _, token = await create_user_with_token()
+        _, token = await acreate_user_with_token()
 
         
         communicator = WebsocketCommunicator(
@@ -209,7 +192,7 @@ class TestArenaWebsocket:
         settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
 
         # First Player
-        _, first_player_token = await create_user_with_token(
+        _, first_player_token = await acreate_user_with_token(
             email="first@example.com",
             password="Testpass123!"
         )
@@ -224,7 +207,7 @@ class TestArenaWebsocket:
         assert first_player_connected == True
 
         # Second player
-        _, second_player_token = await create_user_with_token(
+        _, second_player_token = await acreate_user_with_token(
             email="second@example.com",
             password="Testpass123!"
         )
@@ -255,7 +238,7 @@ class TestArenaWebsocket:
         settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
 
         # First Player
-        _, first_player_token = await create_user_with_token(
+        _, first_player_token = await acreate_user_with_token(
             email="first@example.com",
             password="Testpass123!"
         )
@@ -270,7 +253,7 @@ class TestArenaWebsocket:
         assert first_player_connected == True
 
         # Second player
-        _, second_player_token = await create_user_with_token(
+        _, second_player_token = await acreate_user_with_token(
             email="second@example.com",
             password="Testpass123!"
         )
@@ -288,7 +271,7 @@ class TestArenaWebsocket:
         await self._assert_room_contains_two_players(room_name)
 
         # Third player
-        _, third_player_token = await create_user_with_token(
+        _, third_player_token = await acreate_user_with_token(
             email="third@example.com",
             password="Testpass123!"
         )
@@ -332,7 +315,7 @@ class TestArenaWebsocket:
         
         settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
 
-        _, token = await create_user_with_token()
+        _, token = await acreate_user_with_token()
         
         communicator = WebsocketCommunicator(
             application=application,
@@ -365,7 +348,7 @@ class TestArenaWebsocket:
         
         settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
 
-        _, token = await create_user_with_token()
+        _, token = await acreate_user_with_token()
         
         communicator = WebsocketCommunicator(
             application=application,

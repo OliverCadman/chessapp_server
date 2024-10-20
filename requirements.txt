@@ -7,3 +7,4 @@ drf-spectacular>=0.27.2,<0.28
 djangorestframework-simplejwt>=5.3.1,<5.4
 pytest-asyncio>=0.24.0,<0.25
 pytest-django>=4.9.0,<4.10
+django-cors-headers>=4.5.0,<4.6

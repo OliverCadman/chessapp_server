@@ -18,11 +18,12 @@ from lobby.middleware import TokenMiddlewareStack
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'app.settings')
 
-from arena.routing import websocket_urlpatterns
+from arena.routing import websocket_urlpatterns as arena_routes
+from lobby.routing import websocket_urlpatterns as lobby_routes
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
     "websocket": AllowedHostsOriginValidator(
-        TokenMiddlewareStack(URLRouter(websocket_urlpatterns))
+        TokenMiddlewareStack(URLRouter(arena_routes + lobby_routes))
     )
 })

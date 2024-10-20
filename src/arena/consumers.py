@@ -1,14 +1,15 @@
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
 
-from arena.models import Room, Player
-from arena.exceptions import RoomFullException, RoomNotFoundException
+from core.models import Player
+from arena.models import ArenaRoom
+from core.exceptions import RoomFullException, RoomNotFoundException
 
 class ArenaConsumer(AsyncJsonWebsocketConsumer): 
     @database_sync_to_async
     def _add_room(self, room_name):
         try:
-            Room.objects.add_room(
+            ArenaRoom.objects.add_room(
                     room_name=room_name,
                     user=self.user
                 )
@@ -18,9 +19,9 @@ class ArenaConsumer(AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def _get_room_by_auth_user(self, user):
         try:
-            room = Room.objects.get(player__auth_user=user)
+            room = ArenaRoom.objects.get(player__auth_user=user)
             return room
-        except Room.DoesNotExist:
+        except ArenaRoom.DoesNotExist:
             raise RoomNotFoundException(
                 msg=f"Room for user '{user}' not found"
             )
@@ -29,8 +30,8 @@ class ArenaConsumer(AsyncJsonWebsocketConsumer):
     def _delete_player(self, user):
         try:
             player = Player.objects.get(auth_user=user.id)
-            room = Room.objects.get(player=player.id)
-        except (Player.DoesNotExist, Room.DoesNotExist):
+            room = ArenaRoom.objects.get(player=player.id)
+        except (Player.DoesNotExist, ArenaRoom.DoesNotExist):
             return
 
         # If the deleted player is the final player in the room

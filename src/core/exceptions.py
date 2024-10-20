@@ -18,14 +18,6 @@ class RoomFullException(ServerException):
         return self.msg
     
 
-class PlayerNotFoundException(ServerException):
-    def __init__(self, msg: str):
-        super().__init__(msg)
-    
-    def __str__(self):
-        return self.msg
-    
-
 class RoomNotFoundException(ServerException):
     def __init__(self, msg: str):
         super().__init__(msg)
