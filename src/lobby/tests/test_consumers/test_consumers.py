@@ -2,9 +2,9 @@ from channels.testing import WebsocketCommunicator
 from channels.layers import get_channel_layer
 from channels.db import database_sync_to_async
 from common.tests.constants import TEST_CHANNEL_LAYERS
-from common.tests.utils import acreate_user_with_token
+from common.tests.utils import acreate_user_with_token, create_user
 
-from core.models import Room, Player
+from core.models import Room
 
 from app.asgi import application
 
@@ -94,11 +94,120 @@ class TestLobbyWebsocket:
 
         await communicator.disconnect()
 
+    # Util functions for DB transactions in test_list_connected_players
+    @database_sync_to_async
+    def create_and_return_test_room(self, test_room_group_name):
+        return Room.objects.create(
+            room_name=test_room_group_name
+        )
+    
+    @database_sync_to_async
+    def create_test_user(self, email):
+        return create_user(
+            email=email
+        )
+    
+    @database_sync_to_async
+    def add_players_to_room(self, room, players):
+        [
+            room.add_player(player["channel_name"], player["auth_user"])
+            for player in players 
+        ]
+
     async def test_list_connected_players(self, settings, origin_headers):
         """
         Test request to webocket to list connected players returns list of players
         in JSON.
         """
+
+        settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
+
+        test_room_group_name = "room_lobby_1"
+        test_room = await self.create_and_return_test_room(test_room_group_name)
+
+        test_user_1 = await self.create_test_user(
+            email="test1@example.com"
+        )
+        test_user_1_channel_name = "user_1_channel"
+    
+
+        test_user_2 = await self.create_test_user(
+            email="test2@example.com"
+        )
+        test_user_2_channel_name = "user_2_channel"
+
+        test_user_3 = await self.create_test_user(
+            email="test3@example.com"
+        )
+        test_user_3_channel_name = "user_3_channel"
+
+        # Create 1-2-1 Player object for all three users.
+        players_to_add_to_room = [
+            {
+                "channel_name": test_user_1_channel_name,
+                "auth_user": test_user_1
+            },
+            {
+                "channel_name": test_user_2_channel_name,
+                "auth_user": test_user_2 
+            },
+            {
+                "channel_name": test_user_3_channel_name,
+                "auth_user": test_user_3
+            }
+        ]
+        
+        await self.add_players_to_room(test_room, players_to_add_to_room)
+
+        current_user, token = await acreate_user_with_token()
+
+        communicator = WebsocketCommunicator(
+            application=application,
+            path=f"ws/lobby/{lobby_room_id}?token={token}",
+            headers=[origin_headers]
+        )
+
+        connected, _ = await communicator.connect()
+        assert connected is True
+
+        payload = {
+            "group_name": f"room_{lobby_room_id}",
+            "type": "player.list",
+            "data": {
+                "current_user_email": current_user.email
+            }
+        }
+
+        channel_layer = get_channel_layer()
+        await channel_layer.group_send(
+            f"room_{lobby_room_id}", payload
+        )
+
+        res = await communicator.receive_json_from()
+
+        # TODO: Create method in RoomManager to list all players associated
+        # with given room object. Serializers.deserialize?
+
+        expected_res = [
+                {
+                    "user": {
+                        "email": test_user_1.email
+                    }
+                },
+                {
+                    "user": {
+                        "email": test_user_2.email
+                    }
+                },
+                {
+                    "user": {
+                        "email": test_user_3.email
+                    }
+                }
+            ]
+        
+        assert res["data"]["players"] == expected_res
+        await communicator.disconnect()
 
     async def test_authorized_connect_creates_single_user_group(
             self, settings, origin_headers
@@ -173,11 +282,11 @@ class TestLobbyWebsocket:
         user_group_name = f"user_{opponent.id}"
 
         payload = {
+            "group_name": user_group_name,
             "type": "lobby.challenge",
             "data": {
                 "colour": enums.Colours.WHITE.value,
-                "time_control": enums.TimeControls.RAPID.value,
-                "group_name": user_group_name
+                "time_control": enums.TimeControls.RAPID.value
             }
         }
 
@@ -186,7 +295,15 @@ class TestLobbyWebsocket:
         )
 
         res = await opponent_communicator.receive_json_from()
-        assert res == payload
+
+        expected_res = {
+            "type": "lobby.challenge",
+            "data": {
+                "colour": enums.Colours.WHITE.value,
+                "time_control": enums.TimeControls.RAPID.value
+            }
+        }
+        assert res == expected_res
 
         # TODO: THIRD PLAYER SHOULD NOT RECEIVE CHALLENGE REQUEST.
         assert await another_player_communicator.receive_nothing() is True
@@ -225,9 +342,9 @@ class TestLobbyWebsocket:
         challenger_group_name = f"room_{lobby_room_id}"
 
         opponent_change_request_payload = {
+            "group_name": challenger_group_name,
             "type": "challenge.change.request",
             "data": {
-                "group_name": challenger_group_name,
                 "colour": enums.Colours.RANDOM.value,
                 "time_control": enums.TimeControls.SUPERBLITZ.value
             }
@@ -238,7 +355,16 @@ class TestLobbyWebsocket:
         )
 
         change_res = await challenger_communicator.receive_json_from()
-        assert change_res == opponent_change_request_payload
+
+        expected_res = {
+            "type": "challenge.change.request",
+            "data": {
+                "colour": enums.Colours.RANDOM.value,
+                "time_control": enums.TimeControls.SUPERBLITZ.value
+            }
+        }
+
+        assert change_res == expected_res
 
         await challenger_communicator.disconnect()
         await opponent_communicator.disconnect()

@@ -3,6 +3,9 @@ from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
 
 from core.models import Room
+from core.exceptions import MessageNotSupportedException
+from core.serializers import RoomSerializer
+
 from lobby.channels import send_message_to_user_group
 
 
@@ -71,19 +74,25 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
 
         supported_message_types = [
             "lobby.challenge",
-            "challenge.change.request"
+            "challenge.change.request",
+            "player.list"
         ]
 
         if message_type in supported_message_types:
             data = content.get("data")
-            group_name = data["group_name"]
+            group_name = content.get("group_name")
+            print("CONTENT:", content)
 
             await send_message_to_user_group(group_name, content)
             await self.send_json({
                 "type": message_type,
                 "data": data
             })
-                
+        else:
+            raise MessageNotSupportedException(
+                f"Message of type '{message_type}' not supported.", 
+            )
+
     async def lobby_challenge(self, message):
         message_type = message.get("type")
         data = message.get("data")
@@ -98,4 +107,25 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json({
             "type": message.get("type"),
             "data": message.get("data")
+        })
+
+    @database_sync_to_async
+    def _get_player_list(self, room_name, current_user_email):
+        room = Room.objects.get(room_name=room_name)
+
+        serializer = RoomSerializer(room, current_user_email=current_user_email)
+        data = serializer.data
+        print("DATA:", data)
+        return data
+
+    async def player_list(self, message):
+        print("calling player list...")
+        room_name = message.get("group_name")
+        current_user_email = message.get("data")["current_user_email"]
+        
+        data = await self._get_player_list(room_name, current_user_email)
+
+        await self.send_json({
+            "type": message.get("type"),
+            "data": data
         })
