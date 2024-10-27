@@ -28,7 +28,3 @@ def create_user_with_token(email="test@example.com", password="Testpass123!"):
 
 def create_user(email="test@example.com", password="Testpass123!"):
     return get_user_model().objects.create_user(email=email, password=password)
-
-
-def create_test_datetime() -> timezone.datetime:
-    return timezone.datetime(2024, 9, 15, tzinfo=tz.utc)

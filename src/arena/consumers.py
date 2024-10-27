@@ -7,10 +7,11 @@ from core.exceptions import RoomFullException, RoomNotFoundException
 
 class ArenaConsumer(AsyncJsonWebsocketConsumer): 
     @database_sync_to_async
-    def _add_room(self, room_name):
+    def _add_room(self, room_name, channel_name):
         try:
             ArenaRoom.objects.add_room(
                     room_name=room_name,
+                    channel_name=channel_name,
                     user=self.user
                 )
         except RoomFullException as err:
@@ -54,7 +55,7 @@ class ArenaConsumer(AsyncJsonWebsocketConsumer):
             await self.close()
         else:
             try:
-                await self._add_room(self.room_group_name)
+                await self._add_room(self.room_group_name, self.channel_name)
                 print("SUCCESS")
             except RoomFullException:
                 print("ROOM FULL! ERROR RAISED.")

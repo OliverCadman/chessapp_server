@@ -1,9 +1,5 @@
-from django.db import models
-from django.conf import settings
-from django.utils import timezone
-from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
-from core.exceptions import RoomFullException, RoomNotFoundException
+from core.exceptions import RoomFullException
 from core.models import RoomManager, Room
 
 import os
@@ -11,14 +7,14 @@ import os
 
 class ArenaRoomManager(RoomManager):
 
-    def add_room(self, room_name, user):
+    def add_room(self, room_name, channel_name, user):
         room, _ = ArenaRoom.objects.get_or_create(
             room_name=room_name
         )
         
         try:
             room.add_player(
-                    room_name=room_name,
+                    channel_name=channel_name,
                     user=user
                 )
         except RoomFullException as err:
@@ -38,14 +34,14 @@ class ArenaRoom(Room):
 
     objects = ArenaRoomManager()
 
-    def add_player(self, room_name, user):
+    def add_player(self, channel_name, user):
 
         if self._is_full:
             raise RoomFullException(
                 f"Room \"{self.room_name}\" cannot accept more than two players."
             )
         
-        super().add_player(room_name, user)
+        super().add_player(channel_name, user)
 
     @property
     def _is_full(self):

@@ -2,7 +2,12 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 
 from core.models import Player, Room
-from common.tests.utils import create_test_datetime
+from common.models.utils import current_datetime
+
+from unittest.mock import patch
+
+from django.utils import timezone
+from datetime import timezone as tz
 
 
 class PlayerModelTests(TestCase):
@@ -15,10 +20,14 @@ class PlayerModelTests(TestCase):
     - TODO: Update 'last seen' status of Player
     """
 
-    def test_create_player(self):
+    @patch("core.models.current_datetime")
+    def test_create_player(self, patched_time):
         """
         Test successful creation of Player DB instance
         """
+
+        test_timezone = timezone.datetime(2024, 9, 15, tzinfo=tz.utc)
+        patched_time.return_value = test_timezone
 
         auth_user = get_user_model().objects.create_user(
             email="test@example.com",
@@ -30,11 +39,12 @@ class PlayerModelTests(TestCase):
             room_name=room_name
         )
 
-        last_seen = create_test_datetime()
-        Player.objects.get_or_create(
+        channel_name = "player_channel"
+        Player.objects.create(
             auth_user=auth_user,
             room=room,
-            last_seen=last_seen
+            channel_name=channel_name,
+            last_seen=test_timezone
         )
 
         players = Player.objects.all()
@@ -46,27 +56,28 @@ class PlayerModelTests(TestCase):
 
         self.assertEqual(player_user_prop, auth_user)
         self.assertEqual(player_room_prop, room)
-        self.assertEqual(player_lastseen_prop, last_seen)
+        self.assertEqual(player_lastseen_prop, test_timezone)
 
-    def test_create_player_unauthenticated_user(self):
+    @patch("core.models.current_datetime")
+    def test_create_player_unauthenticated_user(self, patched_time):
         """
         Test creating a player with unauthenticated user successful.
         """
 
-        last_seen = create_test_datetime()
+        test_timezone = timezone.datetime(2024, 9, 15, tzinfo=tz.utc)
+        patched_time.return_value = test_timezone
 
-        room_name="test_room"
+        channel_name="player_channel"
+        room_name = "test_room"
         room, _ = Room.objects.get_or_create(
             room_name=room_name
         )
 
-        last_seen = create_test_datetime()
-
         Player.objects.create(
             auth_user=None,
-            room_name=room_name,
+            channel_name=channel_name,
             room=room,
-            last_seen=last_seen
+            last_seen=test_timezone
         )
 
         players = Player.objects.all()
@@ -76,7 +87,53 @@ class PlayerModelTests(TestCase):
         player_room_prop = players[0].room
         player_lastseen_prop = players[0].last_seen
 
+
         self.assertEqual(player_user_prop, None)
         self.assertEqual(player_room_prop, room)
-        self.assertEqual(player_lastseen_prop, last_seen)
+        self.assertEqual(player_lastseen_prop, test_timezone)
 
+
+    @patch("core.models.current_datetime")
+    def test_touch_updates_last_seen(self, patched_time):
+        """
+        Test that calling the .touch method of the PlayerManager
+        updates the 'last_seen' field of a given Player with
+        the current time.
+        """
+
+        """
+            Test successful creation of Player DB instance
+            """
+
+        auth_user = get_user_model().objects.create_user(
+            email="test@example.com",
+            password="testpass123!"
+        )
+
+        room_name = "test_room"
+        room, _ = Room.objects.get_or_create(
+            room_name=room_name
+        )
+
+        # last_seen = create_datetime()
+
+        channel_name = "player_channel"
+        player = Player.objects.create(
+            auth_user=auth_user,
+            room=room,
+            channel_name=channel_name
+        )
+
+        test_timezone = timezone.now()
+        patched_time.return_value = test_timezone
+
+
+        # Update last_seen timestamp
+        Player.objects.touch(channel_name)
+
+        player.refresh_from_db()
+
+        updated_player = Player.objects.get(id=player.id)
+
+        patched_time.assert_called_once()
+        self.assertEqual(updated_player.last_seen, test_timezone)
