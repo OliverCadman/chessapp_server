@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import os
+from enum import Enum
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,10 +27,11 @@ SECRET_KEY = 'django-insecure-w@w*c3-my$+m&c63%42n_pmz#c7g(a)f%+qj&g4@h1--+swkz8
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "0.0.0.0", "127.0.0.1"
+]
 
 AUTH_USER_MODEL = "core.User"
-
 
 # Application definition
 
@@ -44,21 +46,29 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
 
    # custom apps
     'core',
-    'arena',
+    'lobby',
+    'arena'
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:5500"
+]
+
 
 CHANNEL_LAYERS = {
     "default": {
@@ -74,6 +84,10 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICAITON_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication"        
     )
+}
+
+SPECTACULAR_SETTINGS = {
+    "COMPONENT_SPLIT_REQUEST": True
 }
 
 ROOT_URLCONF = 'app.urls'
