@@ -1,10 +1,11 @@
 from channels.testing import WebsocketCommunicator
 from channels.layers import get_channel_layer
 from channels.db import database_sync_to_async
+from django.db.models import Q
 from common.tests.constants import TEST_CHANNEL_LAYERS
 from common.tests.utils import acreate_user_with_token, create_user
 
-from core.models import Room
+from core.models import Room, Player
 
 from app.asgi import application
 
@@ -184,9 +185,6 @@ class TestLobbyWebsocket:
         )
 
         res = await communicator.receive_json_from()
-
-        # TODO: Create method in RoomManager to list all players associated
-        # with given room object. Serializers.deserialize?
 
         expected_res = [
                 {
@@ -368,3 +366,102 @@ class TestLobbyWebsocket:
 
         await challenger_communicator.disconnect()
         await opponent_communicator.disconnect()
+
+    @database_sync_to_async
+    def assert_expected_player_list_length(self, room, expected_list_length):
+        player_list = room.player_set.all()
+        assert len(player_list) == expected_list_length
+
+    @database_sync_to_async
+    def assert_players_in_player_list(self, room, players):
+        player_list = room.player_set.all()
+        for player in players:
+            assert player in player_list
+
+    @database_sync_to_async
+    def assert_player_not_in_list(self, room, player):
+        player_list = room.player_set.all()
+        assert player not in player_list
+
+    @database_sync_to_async
+    def get_player_by_email(self, email):
+        return Player.objects.get(auth_user__email=email)
+    
+    @database_sync_to_async
+    def get_all_players(self):
+        return Player.objects.all()
+    
+    @database_sync_to_async
+    def get_all_players_except_disconnected_user(self, email):
+        return Player.objects.filter(~Q(auth_user__email=email))
+
+    async def test_player_pruned_from_room_upon_disconnect(self, settings, origin_headers):
+        """
+        Test that a Player instance is removed from associated Room instance
+        upon Websocket disconnect.
+        """
+
+        settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
+
+        test_room_group_name = "room_lobby_1"
+        test_room = await self.create_and_return_test_room(test_room_group_name)
+
+        test_user_1 = await self.create_test_user(
+            email="test1@example.com"
+        )
+        test_user_1_channel_name = "user_1_channel"
+    
+
+        test_user_2 = await self.create_test_user(
+            email="test2@example.com"
+        )
+        test_user_2_channel_name = "user_2_channel"
+
+        # Create 1-2-1 Player object for all three users.
+        players_in_room = [
+            {
+                "channel_name": test_user_1_channel_name,
+                "auth_user": test_user_1
+            },
+            {
+                "channel_name": test_user_2_channel_name,
+                "auth_user": test_user_2 
+            }
+        ]
+        
+        await self.add_players_to_room(test_room, players_in_room)
+
+        test_user_3, token = await acreate_user_with_token()
+
+        communicator = WebsocketCommunicator(
+            application=application,
+            path=f"ws/lobby/{lobby_room_id}?token={token}",
+            headers=[origin_headers]
+        )
+        
+        connected, _ = await communicator.connect()
+        assert connected is True
+
+        connected_player = await self.get_player_by_email(test_user_3.email)
+        
+        players_in_room.append({
+            "channel_name": connected_player.channel_name,
+            "auth_user": test_user_3
+        })
+
+        await self.assert_expected_player_list_length(test_room, 3)
+
+        all_players = await self.get_all_players()
+        
+        await self.assert_players_in_player_list(test_room, all_players)
+        await communicator.disconnect()
+
+        del players_in_room[-1]
+
+        all_players_except_disconnected_user = await self.get_all_players_except_disconnected_user(
+            test_user_3.email
+            )
+
+        await self.assert_player_not_in_list(test_room, connected_player)
+        await self.assert_expected_player_list_length(test_room, 2)
+        await self.assert_players_in_player_list(test_room, all_players_except_disconnected_user)

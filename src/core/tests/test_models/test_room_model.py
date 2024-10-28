@@ -200,4 +200,44 @@ class RoomModelIntegrationTests(TestCase):
         self.assertEqual(players[0].auth_user, auth_user)
         self.assertEqual(players[0].channel_name, player_channel_name)
         self.assertEqual(players[0].room, rooms[0])
-        
+
+    def test_remove_player(self):
+        """Test removing associated Player instances from a given Room instance."""
+
+        test_room_name = "test_room"
+
+        room = Room.objects.create(room_name=test_room_name)
+
+        test_user_1 = create_user()
+        user_1_channel_name = "user_channel_1"
+
+        player_1 = room.add_player(
+            channel_name=user_1_channel_name,
+            user=test_user_1
+        )
+
+        test_user_2 = create_user(email="test2@example.com")
+        user_2_channel_name = "user_channel_2"
+
+        player_2 = room.add_player(
+            channel_name=user_2_channel_name,
+            user=test_user_2
+        )
+
+        player_list = room.player_set.all()
+        assert len(player_list) == 2
+        assert player_1 in player_list
+        assert player_2 in player_list
+
+        # Remove First Player
+        room.remove_player(
+            channel_name=user_1_channel_name, 
+        )
+
+        room.refresh_from_db()
+
+        updated_player_list = room.player_set.all()
+
+        assert len(updated_player_list) == 1
+        assert player_1 not in updated_player_list
+        assert player_2 in updated_player_list

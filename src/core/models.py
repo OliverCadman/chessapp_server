@@ -1,6 +1,5 @@
 from django.db import models
 from django.conf import settings
-from django.utils import timezone
 from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
 from core.exceptions import RoomNotFoundException
@@ -93,6 +92,16 @@ class Room(models.Model):
 
         return player
 
+    def remove_player(self, channel_name, player=None):
+        if not player:
+            try:
+                player = Player.objects.get(room=self, channel_name=channel_name)
+            except Player.DoesNotExist:
+                return
+
+        player.delete()
+
+
     @property
     def is_empty(self):
         """
@@ -117,6 +126,12 @@ class PlayerManager(models.Manager):
         self.filter(channel_name=channel_name).update(
             last_seen=current_datetime()
             )
+        
+    
+    def leave_rooms(self, channel_name):
+        for player in self.select_related("room").filter(channel_name=channel_name):
+            room = player.room
+            room.remove_player(channel_name)
 
 
 class Player(models.Model):
