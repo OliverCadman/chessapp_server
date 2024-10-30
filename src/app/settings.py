@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import os
-from enum import Enum
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -89,6 +89,15 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     "COMPONENT_SPLIT_REQUEST": True
 }
+
+CELERYBEAT_SCHEDULE = {
+    "prune_players": {
+        "task": "core.tasks.prune_players",
+        "schedule": timedelta(seconds=60)
+    }
+}
+
+PLAYER_MAX_AGE = 60
 
 ROOT_URLCONF = 'app.urls'
 

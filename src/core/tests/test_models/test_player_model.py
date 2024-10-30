@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 
 from core.models import Player, Room
-from common.models.utils import current_datetime
+from common.tests.utils import create_user
 
 from unittest.mock import patch
 
@@ -92,7 +92,6 @@ class PlayerModelTests(TestCase):
         self.assertEqual(player_room_prop, room)
         self.assertEqual(player_lastseen_prop, test_timezone)
 
-
     @patch("core.models.current_datetime")
     def test_touch_updates_last_seen(self, patched_time):
         """
@@ -137,3 +136,43 @@ class PlayerModelTests(TestCase):
 
         patched_time.assert_called_once()
         self.assertEqual(updated_player.last_seen, test_timezone)
+
+    def test_leave_room(self):
+        """
+        Test that the 'prune_rooms' method of RoomManager 
+        deletes 
+        """
+
+        room_name = "test_room"
+
+        room = Room.objects.create(room_name=room_name)
+
+        test_user_1 = create_user()
+        user_channel_name_1 = "user_channel_1"
+        player_1 = room.add_player(
+            channel_name=user_channel_name_1,
+            user=test_user_1
+        )
+
+        test_user_2 = create_user(email="user2@example.com")
+        user_channel_name_2 = "user_channel_2"
+        player_2 = room.add_player(
+            channel_name=user_channel_name_2,
+            user=test_user_2
+        )
+
+        player_list = room.player_set.all()
+        assert len(room.player_set.all()) == 2
+        assert player_1 in player_list
+        assert player_2 in player_list
+
+        # Simulate actions when player disconnects.
+        Player.objects.leave_rooms(user_channel_name_1)
+
+        updated_room = Room.objects.get(room_name=room_name)
+
+        updated_player_list = updated_room.player_set.all()
+
+        assert player_1 not in updated_player_list
+        assert player_2 in updated_player_list
+        assert len(updated_player_list) == 1
