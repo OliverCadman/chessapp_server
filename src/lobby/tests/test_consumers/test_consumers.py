@@ -465,3 +465,5 @@ class TestLobbyWebsocket:
         await self.assert_player_not_in_list(test_room, connected_player)
         await self.assert_expected_player_list_length(test_room, 2)
         await self.assert_players_in_player_list(test_room, all_players_except_disconnected_user)
+
+        

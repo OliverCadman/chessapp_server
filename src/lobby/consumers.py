@@ -138,6 +138,8 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
     async def player_list(self, message):
         room_name = message.get("group_name")
         current_user_email = message.get("data")["current_user_email"]
+
+        print("MSG:", message)
         
         try:
             data = await self._get_player_list(room_name, current_user_email)

@@ -12,6 +12,8 @@ from django.contrib.auth.models import (
     BaseUserManager
     )
 
+from datetime import timedelta, datetime
+
 
 class RoomManager(models.Manager):
     """
@@ -55,6 +57,10 @@ class RoomManager(models.Manager):
         )
 
         return room
+    
+    def prune_players(self, age=None):
+        for room in Room.objects.all():
+            room.prune_players(age)
 
 
 class Room(models.Model):
@@ -101,6 +107,15 @@ class Room(models.Model):
 
         player.delete()
 
+    def prune_players(self, channel_name=None, age=None):
+
+        if age is None:
+            age = getattr(settings, "PLAYER_MAX_AGE", 60)
+
+        Player.objects.filter(
+            room=self, 
+            last_seen__lt=datetime.now() - timedelta(seconds=age)
+            ).delete()
 
     @property
     def is_empty(self):
