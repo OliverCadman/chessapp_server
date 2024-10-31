@@ -7,6 +7,7 @@ async def send_message_to_user_group(group_name, message):
     await channel_layer.group_send(
         "{}".format(group_name),
         {
+            "room_name": message.get("room_name"),
             "group_name": group_name,
             "type": message.get("type"),
             "data": message.get("data")

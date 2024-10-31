@@ -28,8 +28,9 @@ class RoomSerializer(serializers.ModelSerializer):
     players = serializers.SerializerMethodField()
 
     def get_players(self, _):
-        
+    
         qs = Player.objects.filter(~Q(auth_user__email=self.current_user_email))
+        print("GETTING THESE PLAYERS:", qs)
         serializer = PlayerSerializer(qs, many=True)
         return serializer.data
 

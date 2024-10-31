@@ -54,6 +54,8 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
         self.user = self.scope["user"]
         self.room_id = self.scope["url_route"]["kwargs"]["room_id"]
         self.user_group_name = f"user_{self.user.id}"
+
+        print("CHANNEL NAME", self.channel_name)
         
         if self.user.is_anonymous:
             await self.close()
@@ -71,7 +73,18 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_add(
                 self.user_group_name, self.channel_name
             )
-            await self.accept()
+
+            await self.channel_layer.group_send(
+                "{}".format(self.user_group_name),
+                {
+                    "type": "user.get_group_name",
+                    "data": {
+                        "user_group_name": f"user_{self.user.id}"
+                    }
+                }
+            )
+
+            await self.accept()  
     
     async def disconnect(self, code):
         room_id = self.scope["url_route"]["kwargs"]["room_id"]
@@ -92,15 +105,11 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
         ]
 
         if message_type in supported_message_types:
-            data = content.get("data")
             group_name = content.get("group_name")
 
+            print("CONTENT RECEIVED:", content)
+
             await send_message_to_user_group(group_name, content)
-            await self.send_json({
-                "group_name": group_name,
-                "type": message_type,
-                "data": data
-            })
         else:
             raise MessageNotSupportedException(
                 f"Message of type '{message_type}' not supported.", 
@@ -136,13 +145,15 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
             raise RoomNotFoundException(f"Room with name {room_name} could not be found.")
 
     async def player_list(self, message):
-        room_name = message.get("group_name")
+        room_name = message.get("room_name")
+
         current_user_email = message.get("data")["current_user_email"]
 
         print("MSG:", message)
         
         try:
             data = await self._get_player_list(room_name, current_user_email)
+            print("DATA!!!!!", data)
             await self.send_json({
                 "type": message.get("type"),
                 "data": data
@@ -154,3 +165,9 @@ class LobbyConsumer(AsyncJsonWebsocketConsumer):
             })
 
             self.close()
+
+    async def user_get_group_name(self, message):
+        await self.send_json({
+            "type": message.get("type"),
+            "data": message.get("data")
+        })

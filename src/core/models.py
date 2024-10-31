@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
 from core.exceptions import RoomNotFoundException
 from common.models.utils import current_datetime
+from channels.db import database_sync_to_async
 
 from django.db import models
 from django.contrib.auth.models import (
@@ -57,7 +58,7 @@ class RoomManager(models.Manager):
         )
 
         return room
-    
+
     def prune_players(self, age=None):
         for room in Room.objects.all():
             room.prune_players(age)
@@ -90,7 +91,7 @@ class Room(models.Model):
         If room already contains two players, raise exception to be caught by function caller.
         """
 
-        player = Player.objects.create(
+        player, _ = Player.objects.get_or_create(
             auth_user=user,
             room=self,
             channel_name=channel_name
@@ -111,6 +112,8 @@ class Room(models.Model):
 
         if age is None:
             age = getattr(settings, "PLAYER_MAX_AGE", 60)
+
+        print("'now()' in prune_players:", datetime.now())
 
         Player.objects.filter(
             room=self, 
@@ -147,6 +150,27 @@ class PlayerManager(models.Manager):
         for player in self.select_related("room").filter(channel_name=channel_name):
             room = player.room
             room.remove_player(channel_name)
+    
+    def get_or_create(self, *args, **kwargs):
+        """
+        Default implementation would create a new Player object
+        if all Player details already exist, but only the channel name
+        is different (which can might happen after a 
+        player makes a subsequent connection to the websocket)
+        """
+        user = kwargs.pop("auth_user")
+        try:
+            return self.get(auth_user=user), False
+        except Player.DoesNotExist:
+            channel_name = kwargs.pop("channel_name")
+            room = kwargs.pop("room")
+
+            return self.create(
+                channel_name=channel_name,
+                auth_user=user,
+                room=room
+            ), True
+
 
 
 class Player(models.Model):
