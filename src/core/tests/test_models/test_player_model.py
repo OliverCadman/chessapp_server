@@ -58,6 +58,41 @@ class PlayerModelTests(TestCase):
         self.assertEqual(player_room_prop, room)
         self.assertEqual(player_lastseen_prop, test_timezone)
 
+    def test_different_channel_name_returns_same_player(self):
+        """
+        Test that the Player Manager's custom get_or_create method
+        returns an already-existing Player from the DB, instead of 
+        creating a new Player. 
+        """
+
+        test_channel_name = "test_user_channel"
+        test_room_name = "test_room"
+
+        user = create_user()
+        test_room = Room.objects.create(room_name=test_room_name)
+
+        new_player, player_created = Player.objects.get_or_create(
+            room=test_room,
+            channel_name=test_channel_name,
+            auth_user=user
+        )
+
+        assert player_created is True
+        assert new_player.auth_user.email == user.email
+        assert new_player.channel_name == test_channel_name
+        assert new_player.room == test_room
+    
+        retrieved_player, player_created = Player.objects.get_or_create(
+            room=test_room,
+            channel_name=test_channel_name,
+            auth_user=user
+        )
+
+        assert player_created is False
+        assert retrieved_player.auth_user.email == user.email
+        assert retrieved_player.channel_name == test_channel_name
+        assert retrieved_player.room == test_room
+
     @patch("core.models.current_datetime")
     def test_create_player_unauthenticated_user(self, patched_time):
         """

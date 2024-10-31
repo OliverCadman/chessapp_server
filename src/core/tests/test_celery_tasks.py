@@ -8,8 +8,6 @@ from unittest.mock import patch
 from datetime import timedelta, datetime
 
 
-
-
 class TestCeleryTasks(TestCase):
 
     def setUp(self):

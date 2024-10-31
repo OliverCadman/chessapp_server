@@ -6,12 +6,16 @@ from common.tests.constants import TEST_CHANNEL_LAYERS
 from common.tests.utils import acreate_user_with_token, create_user
 
 from core.models import Room, Player
+from core.tasks import prune_players
 
 from app.asgi import application
 
 from lobby import enums
 
 import pytest
+from unittest.mock import patch
+from datetime import datetime, timedelta
+
 
 lobby_room_id = "lobby_1"
 
@@ -22,11 +26,69 @@ def origin_headers():
     since the WS app is wrapped by AllowedHostsOriginValidator.
     """
     return (b"origin", b"ws://127.0.0.1:8000")
+    
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 class TestLobbyWebsocket:
+    @database_sync_to_async
+    def assert_expected_player_list_length(self, room, expected_list_length):
+        player_list = room.player_set.all()
+        assert len(player_list) == expected_list_length
+
+    @database_sync_to_async
+    def assert_players_in_player_list(self, room, players):
+        player_list = room.player_set.all()
+        for player in players:
+            assert player in player_list
+
+    @database_sync_to_async
+    def assert_player_not_in_list(self, room, player):
+        player_list = room.player_set.all()
+        assert player not in player_list
+
+    @database_sync_to_async
+    def get_player_by_email(self, email):
+        return Player.objects.get(auth_user__email=email)
+    
+    @database_sync_to_async
+    def get_all_players(self):
+        return Player.objects.all()
+    
+    @database_sync_to_async
+    def get_all_players_except_disconnected_user(self, email):
+        return Player.objects.filter(~Q(auth_user__email=email))
+    
+     # Util functions for DB transactions in test_list_connected_players
+    @database_sync_to_async
+    def create_and_return_test_room(self, test_room_group_name):
+        return Room.objects.create(
+            room_name=test_room_group_name
+        )
+    
+    @database_sync_to_async
+    def create_test_user(self, email):
+        return create_user(
+            email=email
+        )
+    
+    @database_sync_to_async
+    def add_players_to_room(self, room, players):
+        [
+            room.add_player(player["channel_name"], player["auth_user"])
+            for player in players 
+        ]
+
+    def create_patched_time(self):
+        self.datetime = datetime.now()
+        class MockedDatetime(datetime):
+            @classmethod
+            def now(cls):
+                return self.datetime
+        patcher = patch("core.models.datetime", MockedDatetime)
+        patcher.start()
+
     async def test_authorized_user_connect_successful(
             self, settings, origin_headers
             ): 
@@ -77,6 +139,28 @@ class TestLobbyWebsocket:
 
         await communicator.disconnect()
 
+    async def test_authorized_connect_returns_user_id(self, settings, origin_headers): 
+
+        settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
+
+        user, token = await acreate_user_with_token()
+
+        communicator = WebsocketCommunicator(
+            application=application,
+            path=f"ws/lobby/{lobby_room_id}?token={token}",
+            headers=[origin_headers]
+        )
+
+        connected, _ = await communicator.connect()
+
+        assert connected is True
+
+        res = await communicator.receive_json_from()
+        
+        assert "data" in res
+        assert "user_group_name" in res["data"]
+        assert res["data"]["user_group_name"] == f"user_{user.id}"
+
     async def test_unauthorized_user_disconnect(
             self, settings, origin_headers
             ):
@@ -95,26 +179,6 @@ class TestLobbyWebsocket:
 
         await communicator.disconnect()
 
-    # Util functions for DB transactions in test_list_connected_players
-    @database_sync_to_async
-    def create_and_return_test_room(self, test_room_group_name):
-        return Room.objects.create(
-            room_name=test_room_group_name
-        )
-    
-    @database_sync_to_async
-    def create_test_user(self, email):
-        return create_user(
-            email=email
-        )
-    
-    @database_sync_to_async
-    def add_players_to_room(self, room, players):
-        [
-            room.add_player(player["channel_name"], player["auth_user"])
-            for player in players 
-        ]
-
     async def test_list_connected_players(self, settings, origin_headers):
         """
         Test request to webocket to list connected players returns list of players
@@ -123,7 +187,7 @@ class TestLobbyWebsocket:
 
         settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
 
-        test_room_group_name = "room_lobby_1"
+        test_room_group_name = f"room_{lobby_room_id}"
         test_room = await self.create_and_return_test_room(test_room_group_name)
 
         test_user_1 = await self.create_test_user(
@@ -171,8 +235,17 @@ class TestLobbyWebsocket:
         connected, _ = await communicator.connect()
         assert connected is True
 
+        _, other_token = await acreate_user_with_token(email="another@example.com")
+
+        other_communicator = WebsocketCommunicator(
+            application=application,
+            path=f"ws/lobby/{lobby_room_id}?token={other_token}",
+            headers=[origin_headers]
+        )
+
         payload = {
-            "group_name": f"room_{lobby_room_id}",
+            "group_name": f"user_{current_user.id}",
+            "room_name": test_room_group_name,
             "type": "player.list",
             "data": {
                 "current_user_email": current_user.email
@@ -181,7 +254,7 @@ class TestLobbyWebsocket:
 
         channel_layer = get_channel_layer()
         await channel_layer.group_send(
-            f"room_{lobby_room_id}", payload
+            f"user_{current_user.id}", payload
         )
 
         res = await communicator.receive_json_from()
@@ -204,8 +277,12 @@ class TestLobbyWebsocket:
                 }
             ]
         
+        print("RES!", res)
         assert res["data"]["players"] == expected_res
+        assert await other_communicator.receive_nothing() is True
+
         await communicator.disconnect()
+        await other_communicator.disconnect()
 
     async def test_authorized_connect_creates_single_user_group(
             self, settings, origin_headers
@@ -367,34 +444,6 @@ class TestLobbyWebsocket:
         await challenger_communicator.disconnect()
         await opponent_communicator.disconnect()
 
-    @database_sync_to_async
-    def assert_expected_player_list_length(self, room, expected_list_length):
-        player_list = room.player_set.all()
-        assert len(player_list) == expected_list_length
-
-    @database_sync_to_async
-    def assert_players_in_player_list(self, room, players):
-        player_list = room.player_set.all()
-        for player in players:
-            assert player in player_list
-
-    @database_sync_to_async
-    def assert_player_not_in_list(self, room, player):
-        player_list = room.player_set.all()
-        assert player not in player_list
-
-    @database_sync_to_async
-    def get_player_by_email(self, email):
-        return Player.objects.get(auth_user__email=email)
-    
-    @database_sync_to_async
-    def get_all_players(self):
-        return Player.objects.all()
-    
-    @database_sync_to_async
-    def get_all_players_except_disconnected_user(self, email):
-        return Player.objects.filter(~Q(auth_user__email=email))
-
     async def test_player_pruned_from_room_upon_disconnect(self, settings, origin_headers):
         """
         Test that a Player instance is removed from associated Room instance
@@ -466,4 +515,89 @@ class TestLobbyWebsocket:
         await self.assert_expected_player_list_length(test_room, 2)
         await self.assert_players_in_player_list(test_room, all_players_except_disconnected_user)
 
+    # @patch("core.models.datetime")
+    # async def test_inactive_player_removed_from_player_list(self, 
+    #                                                         patched_time,
+    #                                                         settings, 
+    #                                                         origin_headers
+    #                                                         ):
+    #     """
+    #     Test that a Player object is present in list,
+    #     but is removed when pruned via celery task calling
+    #     Room.objects.prune_players.
+    #     """
+
+    #     settings.CHANNEL_LAYERS = TEST_CHANNEL_LAYERS
+
+    #     test_room_group_name = "room_lobby_1"
+    #     test_room = await self.create_and_return_test_room(test_room_group_name)
+
+    #     test_user_1 = await self.create_test_user(email="test2@example.com")
+
+    #     user_channel_name_1 = "user_channel_1"
+
+    #     players_to_add = [
+    #         {
+    #             "channel_name": user_channel_name_1,
+    #             "auth_user": test_user_1
+    #         }
+    #     ]
+    #     await self.add_players_to_room(
+    #         room=test_room,
+    #         players=players_to_add
+    #     )
+
+
+    #     current_user, token = await acreate_user_with_token()
+
+    #     communicator = WebsocketCommunicator(
+    #         application=application,
+    #         path=f"ws/lobby/{lobby_room_id}?token={token}",
+    #         headers=[origin_headers]
+    #     )
         
+    #     connected, _ = await communicator.connect()
+    #     assert connected is True
+
+    #     payload = {
+    #         "group_name": f"room_{lobby_room_id}",
+    #         "type": "player.list",
+    #         "data": {
+    #             "current_user_email": current_user.email
+    #         }
+    #     }
+
+    #     # channel_layer = get_channel_layer()
+    #     # await channel_layer.group_send(
+    #     #     f"room_{lobby_room_id}", payload
+    #     # )
+
+    #     # res = await communicator.receive_json_from()
+    #     # expected_res = [
+    #     #     {
+    #     #         "user": {
+    #     #             "email": test_user_1.email
+    #     #         }
+    #     #     }
+    #     # ]
+
+    #     # assert res == expected_res
+
+    #     seconds_since_player_active = 70
+    #     patched_time.return_value = datetime.now() + timedelta(seconds=seconds_since_player_active)
+
+    #     prune_players.s().delay()
+
+    #     channel_layer = get_channel_layer()
+    #     await channel_layer.group_send(
+    #         f"room_{lobby_room_id}", payload
+    #     )
+
+    #     res = await communicator.receive_json_from()
+    #     expected_res = []
+
+    #     assert "data" in res
+    #     assert "players" in res["data"]
+    #     assert res["data"]["players"] == expected_res
+
+    #     await communicator.disconnect()
